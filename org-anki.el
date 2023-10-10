@@ -678,12 +678,6 @@ Updates all entries that have ANKI_NOTE_ID property set."
 	   [ :select id
 	     :from nodes ; Pseudo-code, does not work vvvv
 	     :where (= file $s1) :and (assoc (car properties)) ]
-	   (buffer-file-name buffer)))	    (progn (org-roam-node-open (org-roam-node-from-id (car wrapped-id)) nil t)
-		   (org-anki--note-at-point)))
-	  (org-roam-db-query
-	   [ :select id
-	     :from nodes
-	     :where (= file $s1) ]
 	   (buffer-file-name buffer)))
        (org-map-entries 'org-anki--note-at-point
 			(org-anki--get-match) nil
