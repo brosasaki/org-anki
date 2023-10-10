@@ -681,8 +681,8 @@ Updates all entries that have ANKI_NOTE_ID property set."
 	   (buffer-file-name buffer)))
        (org-map-entries 'org-anki--note-at-point
 			(org-anki--get-match) nil
-			org-anki-skip-function)))))
-	 (org-map-entries 'org-anki--note-at-point "ANKI_NOTE_ID<>\"\"")))))
+			org-anki-skip-function)))
+	 (org-map-entries 'org-anki--note-at-point "ANKI_NOTE_ID<>\"\"")))
 
 ;;;###autoload
 (defun org-anki-delete-entry ()
