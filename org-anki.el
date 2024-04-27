@@ -342,15 +342,24 @@ be removed from the Anki app, return actions that do that."
   "Get entry content until any subentry."
   ;; We move around with regexes, so restore original position
   (save-excursion
-    ;; Jump to beginning of entry/node
-    (goto-char (or (ignore-errors (org-entry-beginning-position))
-		   (ignore-errors (org-roam-node-marker (org-roam-node-at-point)))))
-    ; for some reason, org-roam-node-maker is inaccurate when not at the file-level. Odd.
-    ;; Skip heading, if on one.
-    (unless (ignore-errors (eq (org-roam-node-level (org-roam-node-at-point)) 0))
-      (re-search-forward ".*\n"))
-    ;; Possibly skip property block until end of entry
-    (re-search-forward ":properties:\\(.*\n\\)*:end:" (org-entry-end-position) t)
+    (cl-macrolet ((org-drawer-regexp () ;This may need to change at some point to be more
+                                        ;"correct", but I couldn't find an org-native way to
+                                        ;match a whole drawer, let alone of a specific type.
+                    ":properties:\\(.*\n\\)*:end:"))
+      (if (eq (ignore-errors (org-roam-node-level (org-roam-node-at-point))) 0)
+          (progn (goto-char 1)            ;Jump to top of buffer
+                 (while (or (re-search-forward (org-drawer-regexp)
+                                               (org-entry-end-position) t)
+                            (re-search-forward org-keyword-regexp
+                                               (org-entry-end-position) t))
+                   ;; Skip past file-level "header" and other keywords as well as properties block,
+                   ;; in any order.
+                   (ignore)))
+        (progn (goto-char (org-entry-beginning-position)) ;Jump to beginning of entry/node
+               (re-search-forward org-heading-regexp) ;Skip heading, if on one.
+               (re-search-forward (org-drawer-regexp) (org-entry-end-position) t)
+                                        ;Possibly skip property block until end of entry
+               )))
     ;; Get entry content
     (let ((from (point))
           (to (progn (outline-next-heading) (point))))
