@@ -3,7 +3,7 @@
 ;; Copyright (C) 2020 Markus Läll
 ;;
 ;; URL: https://github.com/eyeinsky/org-anki
-;; Version: 3.1.2
+;; Version: 3.3.0
 ;; Author: Markus Läll <markus.l2ll@gmail.com>
 ;; Keywords: outlines, flashcards, memory
 ;; Package-Requires: ((emacs "27.1") (request "0.3.2") (dash "2.17") (promise "1.1"))
@@ -72,7 +72,9 @@ property"
     ("Basic (optional reversed card)" "Front" "Back")
     ("NameDescr" "Name" "Descr")
     ("Cloze" "Text" "Extra"))
-  "Default fields for note types."
+  "Default fields for note types.
+
+Each one is a list, the first item is the model name and the rest are field names."
   :type '(repeat (list (repeat string)))
   :group 'org-anki)
 
@@ -89,6 +91,12 @@ property"
 
 (defcustom org-anki-ankiconnnect-listen-address "http://127.0.0.1:8765"
   "The address of AnkiConnect"
+  :type '(string)
+  :group 'org-anki)
+
+(defcustom org-anki-api-key nil
+  "API key to authenticate to AnkiConnect.
+See https://foosoft.net/projects/anki-connect/#authentication for more."
   :type '(string)
   :group 'org-anki)
 
@@ -139,7 +147,10 @@ customizable by the org-anki-ankiconnnect-listen-address variable.
 
 BODY is the alist json payload, CALLBACK the function to call
 with result."
-  (let ((json (json-encode `(("version" . 6) ,@body))))
+  (let ((json (json-encode
+               `(("version" . 6)
+                 ,@(if org-anki-api-key `(("key" . ,org-anki-api-key)))
+                 ,@body))))
     (request
       org-anki-ankiconnnect-listen-address
       :type "GET"
@@ -269,7 +280,8 @@ with result."
         (let ((missing-field (car (-difference fields found-fields))))
           `(,type ,@(plist-put found missing-field content))))
        (t (org-anki--report-error
-           "org-anki--get-fields: fields required: %s, fields found: %s" fields found-fields))))))
+           "org-anki--get-fields: fields required: %s, fields found: %s, at character: %s"
+           fields found-fields (point)))))))
 
 ;;; JSON payloads
 
@@ -379,17 +391,17 @@ be removed from the Anki app, return actions that do that."
 (defun org-anki--report-error (format &rest args)
   "FORMAT the ERROR and prefix it with `org-anki error'."
   (let ((fmt (concat "org-anki error: " format)))
-    (message fmt args)))
+    (apply #'message fmt args)))
 
 (defun org-anki--report (format_ &rest args)
   "FORMAT_ the ARGS and prefix it with `org-anki'."
   (let* ((fmt (concat "org-anki: " format_)))
-    (message fmt args)))
+    (apply #'message fmt args)))
 
 (defun org-anki--debug (format_ &rest args)
   "FORMAT_ the ARGS and prefix it with `org-anki'."
   (let* ((fmt (concat "org-anki debug: " format_)))
-    (message fmt args)))
+    (apply #'message fmt args)))
 
 (defun org-anki--no-action () (org-anki--report "No action taken."))
 
@@ -618,7 +630,11 @@ be removed from the Anki app, return actions that do that."
 
 (defun org-anki--get-model-fields (model)
   ;; :: String -> [FieldName]
-  (cdr (assoc model org-anki-model-fields)))
+  (let ((fields (cdr (assoc model org-anki-model-fields))))
+    (unless fields
+      (error "No fields for '%s', please customize `org-anki-model-fields'."
+             model))
+    fields))
 
 ;; Public API
 
@@ -667,9 +683,7 @@ be removed from the Anki app, return actions that do that."
 ;;;###autoload
 (defun org-anki-update-all (&optional buffer)
   ;; :: Maybe Buffer -> IO ()
-  "Updates all entries in optional BUFFER.
-
-Updates all entries that have ANKI_NOTE_ID property set."
+  "Updates all entries having ANKI_NOTE_ID property in BUFFER."
   (interactive)
   (with-current-buffer (or buffer (buffer-name))
     (org-anki--sync-notes
@@ -692,6 +706,22 @@ Updates all entries that have ANKI_NOTE_ID property set."
 			(org-anki--get-match) nil
 			org-anki-skip-function)))
 	 (org-map-entries 'org-anki--note-at-point "ANKI_NOTE_ID<>\"\"")))
+
+;;;###autoload
+(defun org-anki-update-dir (&optional prefix dir)
+  ;; :: Maybe Buffer -> IO ()
+  "Updates all entries having ANKI_NOTE_ID property in every .org file in DIR.
+
+If you also want to include its sub-directories, prefix the
+command by hitting `C-u' first."
+  (interactive "P\nDChoose a directory: ")
+  (let* ((org-regex "\\.org\\'")
+         (files (if prefix (directory-files-recursively dir org-regex)
+                  (directory-files dir 'full org-regex))))
+    (dolist (file files)
+      (org-anki--report "updating file %s" file)
+      (with-current-buffer (find-file-noselect file)
+        (org-anki-update-all)))))
 
 ;;;###autoload
 (defun org-anki-delete-entry ()
@@ -837,7 +867,7 @@ Pandoc is required to be installed."
     (org-anki-connect-request
      (org-anki--body
       "findNotes"
-      `(("query" . ,(concat "deck:" name))))
+      `(("query" . ,(format "deck:\"%s\"" name))))
      (lambda (ids)
        (org-anki-connect-request
         (org-anki--body "notesInfo" `(("notes" . ,ids)))

@@ -37,6 +37,8 @@ after being synced to Anki.
 - =org-anki-browse-entry= :: Browse entry at point on anki's browser dialog with searching nid
 - =org-anki-import-deck= :: Prompts for deck name and imports
   it. Requires pandoc for converting html to org.
+- =org-anki-update-dir= :: Updates all entries having =ANKI_NOTE_ID=
+  property in every .org file in your specified directory.
 
 ** Setup
 - Start Anki with AnkiConnect installed
@@ -66,6 +68,7 @@ lose their scheduling information.
   this to =nil= to turn it off.
 - =org-anki-default-note-type= :: set note type. By default this is
   ="Basic"=.
+- =org-anki-api-key= :: API key to authenticate to AnkiConnect. See https://foosoft.net/projects/anki-connect/#authentication for more.
 
 ** Why
 .. as there are [[https://github.com/louietan/anki-editor][anki-editor]], [[https://github.com/abo-abo/pamparam][pamparam]], [[https://gitlab.com/phillord/org-drill][org-drill]], [[https://github.com/l3kn/org-fc][org-fc]]?
